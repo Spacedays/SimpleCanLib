@@ -76,7 +76,17 @@ class CANPingPong : public SimpleCANProfile
                     }
                     break;
                 default:
-                    Serial.printf("y:0x%x DLC=0x%x ", rxHeader.Identifier, rxHeader.DataLength);
+                    // Serial.printf("y:0x%x DLC=0x%x ", rxHeader.Identifier, rxHeader.DataLength);
+                    
+                    int ValI = CANGetInt(rxData);
+
+                    char buf [32];
+                    char buf2 [64];
+
+		            utoa(rxHeader.Identifier,buf,2);
+                    utoa(ValI,buf2,2);
+
+                    Serial.printf("R~ID:%32s DLC=%d Remote?%d EFF?%d\n data=%64s\n\n", buf, rxHeader.DataLength, rxHeader.RxFrameType, rxHeader.IdType, (rxHeader.RxFrameType ? "~" : buf2));
             } 
         }
 

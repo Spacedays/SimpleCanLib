@@ -6,7 +6,7 @@ extern "C" {
 #include <can2040.h>
 }
 
-// #define _PICO_	// FIXME - Recomment
+// #define _PICO_
 
 #if defined(_PICO_)
 
@@ -19,6 +19,35 @@ void Error_Handler(int Code=-1)
 }
 #endif
 
+#define MASK_29BIT 0x3FFFFFFF
+#define MASK_11BIT 0x3FFF
+
+//#DEBUG
+// int to bits for binary printing with padding; bitlen -> max # of bits to read
+void BitStr(uint val, char* buf, uint totLen, uint8_t bitLen=0, char padchar = '0')
+{
+	u_int maxLen = totLen > 4*sizeof(val) ? 4*sizeof(val) : totLen;	// limit write & read length to array & int lengths
+	
+	if (bitLen == 0)
+		bitLen = (4*sizeof(val) < maxLen ? 4*sizeof(val) : maxLen);
+	
+	// Shrink  bit & pad lengths to fit array & int lengths
+	bitLen = bitLen > maxLen ? maxLen : bitLen;
+	uint8_t padLen = maxLen - bitLen;
+
+	for (uint i=0; i<padLen; i++)
+	{
+		buf[i] = padchar;
+	}
+	uint charidx = padLen;
+	for (int i=bitLen-1; i>=0; i--)	// read bit msb -> lsb
+	{
+		buf[charidx] = bitRead(val, i) ? '1' : '0';
+		charidx++;
+	}
+}
+
+
 // Temp message storage for rxhandler; needed since can2040 does not use hardware to store messages
 //		LATER - Changes needed for two CAN instances?
 static struct can2040_msg _msg;	// TESTME later - Does emptying this matter at all?
@@ -30,10 +59,6 @@ class RxHandlerPico : public RxHandlerBase
 		RxHandlerPico(uint16_t dataLength) : RxHandlerBase(dataLength) {};
 		bool CANReadFrame(SimpleCanRxHeader* SCHeader, uint8_t* pData, int MaxDataLen);		
  		void ReleaseRcvBuffer();		
-
-	private:
-		// can2040 callback function, called whenever messages send, are received, or error
-		// void can2040_cb(struct can2040 *cd, uint32_t notify_case, struct can2040_msg *msg);	// TODO: remove
 };
 
 // Copy max _rxDataLength bytes from received frame to _rxData. 
@@ -43,10 +68,6 @@ bool RxHandlerPico::CANReadFrame(SimpleCanRxHeader* SCHeader, uint8_t* pData, in
 	// struct can2040msg _msg;	// Variable can2040 msg being processed is stored in
 
 	 //check if we have a queue. If not, operation is aborted.
-	 // TESTME - Does not check for empty message. Should it? ---> 
-		// #define UINT32_MAX  (0xffffffff)
-	 	// || (RxHandlerPico::_msg.id == UINT32_MAX )
-
 	if (ProfileCallback == NULL)
 	{
 		return false;
@@ -55,10 +76,10 @@ bool RxHandlerPico::CANReadFrame(SimpleCanRxHeader* SCHeader, uint8_t* pData, in
 	SCHeader->RxTimestamp = -1;			// Unusupported...
 	SCHeader->FilterIndex = -1;
 	SCHeader->IsFilterMatchingFrame = -1;
-	SCHeader->RxFrameType = (_msg.id & CAN2040_ID_RTR) ? SCFrameType::CAN_REMOTE_FRAME : SCFrameType::CAN_DATA_FRAME;	// TESTME RTR interpretation
+	SCHeader->RxFrameType = (_msg.id & CAN2040_ID_RTR) ? SCFrameType::CAN_REMOTE_FRAME : SCFrameType::CAN_DATA_FRAME;
 	SCHeader->DataLength = _msg.dlc;
 	SCHeader->Format = SCCanType::CAN_CLASSIC;
-	SCHeader->Identifier = _msg.id & 0x3FFFFFFF;	// TESTME - presumably the 2 MSB are RTR & EFF bits. Is this necessary?
+	SCHeader->Identifier = _msg.id & MASK_29BIT;
 
 	 // Check if this is a standard or extended CAN frame
 	if(_msg.id & CAN2040_ID_EFF)	// TESTME EFF Interpretation
@@ -70,11 +91,7 @@ bool RxHandlerPico::CANReadFrame(SimpleCanRxHeader* SCHeader, uint8_t* pData, in
 	if (SCHeader->RxFrameType==SCFrameType::CAN_DATA_FRAME)
 		for(int i=0; i<SCHeader->DataLength && i<MaxDataLen; i++)
 			pData[i]=_msg.data[i];
-
-	// if (SCHeader->RxFrameType!=SCFrameType::CAN_DATA_FRAME)
-	//	Serial.print(" RTR ");	// DEBUG
-
-	// Serial.println("CRF end"); delay(50);
+	
 	return true;
 }
 
@@ -132,8 +149,7 @@ class SimpleCan_Pico : public SimpleCan
 		// Sending an RTR frame is exactly the same as SendMessage(), except for setting the RTR bit in the header
 		// and to not send any data bytes as payload. NumBytes/DLC must be set to the number of bytes expected in the
 		// return payload. The answer to the RTR frame will be received and handled like any other CAN message.
-		// bool RequestMessage(int NumBytes, int CanID, bool UseEFF=false);
-		// static bool SendRequestMessage(int NumBytes, int CanID, bool UseEFF);	//TODO: seperate RTR msg?
+		// bool RequestMessage(int NumBytes, int CanID, bool UseEFF=false); //TODO
 
 		// SCCanStatus ConfigGlobalFilter(uint32_t nonMatchingStd, uint32_t nonMatchingExt, uint32_t rejectRemoteStd, uint32_t rejectRemoteExt);
 		// SCCanStatus AddMessageToTxFifoQ(FDCAN_TxHeaderTypeDef *pTxHeader, uint8_t *pTxData);
@@ -156,7 +172,7 @@ SimpleCan_Pico::SimpleCan_Pico()
 	SendIDFilterFunc = 0;
 }
 
-// RxHandlerPico:: // TESTME: moving can2040_cb to global scope?
+
 static void can2040_cb(struct can2040 *cd, uint32_t notify_case, struct can2040_msg *msg)
 {
 	if (SimpleCan_Pico::RxHandlerP == NULL)
@@ -198,16 +214,15 @@ SCCanStatus SimpleCan_Pico::Init(SCCanSpeed speed, CanIDFilter IDFilterFunc /*=0
 	uint32_t pio_num = 0;
 	can2040_setup(&cbus, pio_num);
 	
-	// can2040_callback_config(&cbus, SimpleCan_Pico::RxHandlerP->can2040_cb);	// TODO - remove
 	// Connect can2040 callback - copies message -> handles errors, -> calls Notify()
 	can2040_callback_config(&cbus, can2040_cb);
 
 	// Enable irqs
-	irq_set_exclusive_handler(PIO0_IRQ_0_IRQn, PIOx_IRQHandler);	// TODO - irq wat do
+	irq_set_exclusive_handler(PIO0_IRQ_0_IRQn, PIOx_IRQHandler);
 	NVIC_SetPriority(PIO0_IRQ_0_IRQn, 1);
 	NVIC_EnableIRQ(PIO0_IRQ_0_IRQn);
 
-	return CAN_OK;	// TODO: error handling on init
+	return CAN_OK;	// TODO: error handling on init?
 }
 
 void SimpleCan_Pico::PIOx_IRQHandler(void)
@@ -259,7 +274,7 @@ SCCanStatus SimpleCan_Pico::Stop(void)
 
 SCCanStatus SimpleCan_Pico::ConfigFilter(FilterDefinition *SCFilter)
 {
-	//TODO - Write Filter implementation? (or copy from esp/stm)
+	//TODO - Write Filter implementation
 
 	// For ESP32: Mask bit==1 ignores the bit. Acceptance code spans ID,RTR and first two data bytes (std frame).
 	// For SimpleCAN: Mask bit==1 requires the bit to match.  Acceptance code spans ID only.
@@ -317,7 +332,7 @@ SCCanStatus SimpleCan_Pico::ConfigFilter(FilterDefinition *SCFilter)
 
 SCCanStatus SimpleCan_Pico::ConfigGlobalFilter()
 {
-	//TODO later - Write Filter implementation? (or copy from esp/stm)
+	//TODO - Write Filter implementation
 	// ---
 	return CAN_OK;
 }
@@ -345,18 +360,42 @@ bool SimpleCan_Pico::SendNextMessageFromQueue()
 		}
 
 		can2040_msg CMsg;
-		can2040_msg *outgoing_ptr = &CMsg;	// TESTME - valid? Does it need to be reset?
+		
+		CMsg.dlc = Msg.Size;
 
-		// TESTME: added back EFF bit to iD 
-		CMsg.id = Msg.CanID;
 		// This should not be shifted; 2 MSB unused for 29 bit// CMsg.id << 2;	// TESTME - should this be shifted? Is it actually 29 bit?
-		if (Msg.RTR)
-			CMsg.id |= CAN2040_ID_RTR;
+		CMsg.id = ((uint32_t)Msg.CanID) & (Msg.EFF ? MASK_29BIT : MASK_11BIT);	// throw away any extra bits in the ID
 		if (Msg.EFF)
-			CMsg.id |= CAN2040_ID_EFF;
+		{
+			CMsg.id |= CAN2040_ID_EFF; // TESTME: added back EFF bit to iD 
+		}
+		if (Msg.RTR)
+		{
+			CMsg.id |= CAN2040_ID_RTR;
+			if (can2040_transmit(&cbus, &CMsg) < 0)
+			{
+				Serial.print("CAN: Message Tx failed - queue full!\n");
+			} 
+			return true;
+		} else
+		{
+			memcpy(&(CMsg.data), &(Msg.Data), Msg.Size);
+
+		}
+		
+		// DEBUG TX prints
+		uint64_t Val;
+		memcpy(&Val, &(CMsg.data), CMsg.dlc);
+
+		char buf [32];
+		char buf2 [64];
+		BitStr(Msg.CanID, buf, 32, (Msg.EFF ? 29 : 11), ' ');	// excess bits generated from utoa for some reason? extra '100' at the MSB 
+		utoa(Val, buf2,2);
+		
+		Serial.printf("T~ID:%32s DLC=%d Remote?%d EFF?%d\n data=%64s\n\n", buf, CMsg.dlc, Msg.RTR, Msg.EFF, Msg.RTR ? "~": buf2);
 
 		// schedule for transmission & copy to internal storage; returns 0 if success, (-) number if queue full
-		if (can2040_transmit(&cbus, outgoing_ptr) < 0)
+		if (can2040_transmit(&cbus, &CMsg) < 0)
 		{
 			Serial.print("CAN: Message Tx failed - queue full!\n");
 		} 

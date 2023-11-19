@@ -24,13 +24,13 @@ class RxFromCAN : public PingPongNotificationsFromCAN
 
         void ReceivedPong(const char* pText)
         {
-			Serial.printf("Received: %s\n", pText);
+			Serial.printf("PongReceived: %s\n", pText);
  			ReceivedID = CANID_PP_PONG;
         };
 
         void ReceivedPing(const char* pText)
         {
-			Serial.printf("Received: %s\n", pText);
+			Serial.printf("PingReceived: %s\n", pText);
 			ReceivedID = CANID_PP_PING;
         };
 
@@ -122,6 +122,7 @@ void loop()
 	}
 	else if (CANBroker.ReceivedID==CANID_PP_RTRINT && CANBroker.RTR)
 	{
+		Serial.println("Sending int 1234");
 		// React to an RTR request message. The reply should be the number "1234". If something else is 
 		// received, check the byte order used by the devices!
 		CANBroker.RTR=false;
@@ -141,14 +142,14 @@ void loop()
 		if (NewVal>1000000) NewVal=-1.0;
 		if(NewVal<-1000000) NewVal = 1.0;
 
-		Serial.printf("Sending: %.3f\n", NewVal);
+		Serial.printf("SendingF: %.3f \n", NewVal);
 		CANDevice.CANSendFloat(NewVal, PP_MAKE_CAN_ID(MyDeviceID, CANID_PP_FLOAT));
 		LastFloatAction=millis();
 	}
 
 	// Test of RTR messages
 	// Every 5s request an int value. Response should be the number 1234 in binary form.
-	if (LastRTR+RandWait+5000<millis() )
+	if (LastRTR+RandWait+10000<millis() )
 	{
 		Serial.printf("Request int\n");
 		CANDevice.CANRequestInt(MyDeviceID);
@@ -171,7 +172,7 @@ void loop()
 		LastOtherErrors = CANDevice.Can1->GetOtherErrors();
 		LastStatus = Status;
 
-		Serial.printf("New Status=%s, RxErrors=%d, TxErrors=%d, Other=%d\n", StatusStr, LastTxErrors, LastRxErrors, LastOtherErrors);
+		Serial.printf("\nNew Status=%s, RxErrors=%d, TxErrors=%d, Other=%d\n", StatusStr, LastTxErrors, LastRxErrors, LastOtherErrors);
 	}
 
 	// Update message queues.

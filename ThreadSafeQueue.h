@@ -4,7 +4,7 @@
 #include <queue>
 
 
-#if defined(_STM32_DEF_)
+#if defined(_STM32_DEF_) || defined(_PICO_)
 
 // A simple, non-threadsafe queue for non-multithreading CPUs.
 template <class T>
