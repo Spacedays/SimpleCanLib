@@ -2,13 +2,14 @@
 #include "ThreadSafeQueue.h"
 #include "SimpleCAN.h"
 
+// #define _PICO_
+
+#if defined(_PICO_)
+
 extern "C" {
 #include <can2040.h>
 }
 
-// #define _PICO_
-
-#if defined(_PICO_)
 
 #ifdef Error_Handler
 #undef Error_Handler

@@ -27,13 +27,14 @@
 #define RX_QUEUE_SIZE	16
 #define TX_QUEUE_SIZE	16
 
-#if !defined _STM32_DEF_ && !defined _ESP32_
+#if !defined _STM32_DEF_ && !defined _ESP32_ && !defined _PICO_
 	// Depending on the board you compile this for, define one (!) of the following two.
 	// For platformio this should be one of the -D options in the platformio.ini file. This section
 	// is for Arduino only and not required on pülatformio.
 
 	// #define _STM32_DEF_
 	// #define _ESP32_
+	// #define _PICO_
 #endif
 
 #if defined(_ESP32_)
