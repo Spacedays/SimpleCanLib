@@ -20,8 +20,8 @@ void Error_Handler(int Code=-1)
 }
 #endif
 
-#define MASK_29BIT 0x3FFFFFFF
-#define MASK_11BIT 0x3FFF
+#define MASK_29BIT 0x1FFFFFFF
+#define MASK_11BIT 0x7FF
 
 //#DEBUG
 // int to bits for binary printing with padding; bitlen -> max # of bits to read
@@ -153,7 +153,6 @@ class SimpleCan_Pico : public SimpleCan
 		// bool RequestMessage(int NumBytes, int CanID, bool UseEFF=false); //TODO
 
 		// SCCanStatus ConfigGlobalFilter(uint32_t nonMatchingStd, uint32_t nonMatchingExt, uint32_t rejectRemoteStd, uint32_t rejectRemoteExt);
-		// SCCanStatus AddMessageToTxFifoQ(FDCAN_TxHeaderTypeDef *pTxHeader, uint8_t *pTxData);
 		bool Loop();
 
 		uint8_t TxData[8];
@@ -162,11 +161,13 @@ class SimpleCan_Pico : public SimpleCan
 
 	private:
 		static CanIDFilter SendIDFilterFunc;
+		static uint16_t Bitrate_kHz;	// LATER - Changes needed for two CAN instances?
 };
 
 static struct can2040 cbus;	// LATER - Changes needed for two CAN instances?
 RxHandlerPico* SimpleCan_Pico::RxHandlerP=nullptr;	// Presumably this must be static because of IRQs????
 CanIDFilter SimpleCan_Pico::SendIDFilterFunc;
+uint16_t SimpleCan_Pico::Bitrate_kHz;
 
 SimpleCan_Pico::SimpleCan_Pico()
 {
@@ -223,6 +224,8 @@ SCCanStatus SimpleCan_Pico::Init(SCCanSpeed speed, CanIDFilter IDFilterFunc /*=0
 	NVIC_SetPriority(PIO0_IRQ_0_IRQn, 1);
 	NVIC_EnableIRQ(PIO0_IRQ_0_IRQn);
 
+	SimpleCan_Pico::Bitrate_kHz = 10000/speed;
+
 	return CAN_OK;	// TODO: error handling on init?
 }
 
@@ -257,9 +260,9 @@ SCCanStatus SimpleCan_Pico::SetBusTermination(bool On)
 SCCanStatus SimpleCan_Pico::Start(void)
 {
 	// Start canbus
-	uint32_t sys_clock = SYS_CLK_KHZ*1000; //125000000;	// TODO later: get from PIO config/elsewhere?
-	uint32_t bitrate = 500000;			//TODO: relate to SCCanSpeed
-	uint32_t gpio_rx = 16, gpio_tx = 17;	//TODO later: pass in variables
+	uint32_t sys_clock = F_CPU;
+	uint32_t bitrate = Bitrate_kHz*1000;
+	uint32_t gpio_rx = 16, gpio_tx = 17;	//TODO later: pass in pin variables
 	
 	can2040_start(&cbus, sys_clock, bitrate, gpio_rx, gpio_tx);
 	Serial.println("CAN (Pico): Start");
@@ -365,7 +368,9 @@ bool SimpleCan_Pico::SendNextMessageFromQueue()
 		CMsg.dlc = Msg.Size;
 
 		// This should not be shifted; 2 MSB unused for 29 bit// CMsg.id << 2;	// TESTME - should this be shifted? Is it actually 29 bit?
-		CMsg.id = ((uint32_t)Msg.CanID) & (Msg.EFF ? MASK_29BIT : MASK_11BIT);	// throw away any extra bits in the ID
+		
+		Msg.CanID = ((uint32_t)Msg.CanID) & (Msg.EFF ? MASK_29BIT : MASK_11BIT);	// throw away any extra bits in the ID
+		CMsg.id = Msg.CanID;
 		if (Msg.EFF)
 		{
 			CMsg.id |= CAN2040_ID_EFF; // TESTME: added back EFF bit to iD 
