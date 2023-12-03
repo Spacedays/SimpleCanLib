@@ -242,34 +242,49 @@ SimpleCan_B_g431B::SimpleCan_B_g431B()
 	}
 
 	_hfdcan1.Instance = FDCAN1;
-
-	pinMode(A_CAN_SHDN, OUTPUT);
-	pinMode(A_CAN_TERM, OUTPUT);
-
-	// Bus termination is on by default.
-	digitalWrite(A_CAN_TERM, HIGH);
 	
+	#ifdef A_CAN_SHDN
+		pinMode(A_CAN_SHDN, OUTPUT);
+	#endif
+
+	#ifdef A_CAN_TERM
+		pinMode(A_CAN_TERM, OUTPUT);
+		// Bus termination is on by default.
+		digitalWrite(A_CAN_TERM, HIGH);
+	#endif
+
 	SendIDFilterFunc = 0;
 }
 
 
 SCCanStatus SimpleCan_B_g431B::SetBusTermination(bool On)
 {
-	digitalWrite(A_CAN_TERM, On ? HIGH : LOW);
-	return CAN_OK;
+	#ifdef A_CAN_TERM
+		digitalWrite(A_CAN_TERM, On ? HIGH : LOW);
+		return CAN_OK;
+	#else
+		#warning "No A_CAN_TERM"
+		return CAN_UNSUPPORTED;
+	#endif
 }
 
 
 SCCanStatus SimpleCan_B_g431B::Start(void)
 {
-	digitalWrite(A_CAN_SHDN, LOW);
+	#ifdef A_CAN_SHDN
+		digitalWrite(A_CAN_SHDN, LOW);
+	#else
+		#warning "No A_CAN_SHDN"
+	#endif
 	return HALSTATUS2CANSTATUS(HAL_FDCAN_Start(&_hfdcan1));
 }
 
 
 SCCanStatus SimpleCan_B_g431B::Stop(void)
 {
-	digitalWrite(A_CAN_SHDN, HIGH);
+	#ifdef A_CAN_SHDN
+		digitalWrite(A_CAN_SHDN, HIGH);
+	#endif
 	return HALSTATUS2CANSTATUS(HAL_FDCAN_Stop(&_hfdcan1));
 }
 
