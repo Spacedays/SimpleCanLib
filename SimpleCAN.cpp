@@ -9,6 +9,10 @@
 #include <Arduino.h>
 #include "SimpleCAN.h"
 
+#ifdef PICO
+void digitalToggle(uint32_t);
+#endif
+
 
 SafeQueue<CanRxMessage> SimpleCan::RxQueue(RX_QUEUE_SIZE);
 SafeQueue<CANTxMessage> SimpleCan::TxQueue(TX_QUEUE_SIZE);
@@ -318,3 +322,11 @@ bool RxHandlerBase::Loop()
 	return rc;
 }
 
+#ifdef PICO
+static bool LEDSTATE;
+void digitalToggle(uint32_t pin)
+{
+	digitalWrite(pin, LEDSTATE);
+	LEDSTATE =! LEDSTATE;
+}
+#endif

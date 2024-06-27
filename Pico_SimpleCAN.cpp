@@ -2,9 +2,9 @@
 #include "ThreadSafeQueue.h"
 #include "SimpleCAN.h"
 
-// #define _PICO_
+// #define PICO
 
-#if defined(_PICO_)
+#if defined(PICO)
 
 extern "C" {
 #include <can2040.h>
@@ -51,7 +51,7 @@ void BitStr(uint val, char* buf, uint totLen, uint8_t bitLen=0, char padchar = '
 
 // Temp message storage for rxhandler; needed since can2040 does not use hardware to store messages
 //		LATER - Changes needed for two CAN instances?
-static struct can2040_msg _msg;	// TESTME later - Does emptying this matter at all?
+static struct can2040_msg _msg;
 
 class RxHandlerPico : public RxHandlerBase
 {
@@ -107,7 +107,7 @@ static RxHandlerPico Can1RxHandler(8);			// Preferably this should be allocated 
 class SimpleCan_Pico : public SimpleCan
 {
 	public:
-		SimpleCan_Pico();
+		SimpleCan_Pico(uint32_t PinTx, uint32_t PinRx);
 	
 		//*******************************************************
 		//*** Implementation of pure virtual methods ************
@@ -150,7 +150,7 @@ class SimpleCan_Pico : public SimpleCan
 		// Sending an RTR frame is exactly the same as SendMessage(), except for setting the RTR bit in the header
 		// and to not send any data bytes as payload. NumBytes/DLC must be set to the number of bytes expected in the
 		// return payload. The answer to the RTR frame will be received and handled like any other CAN message.
-		// bool RequestMessage(int NumBytes, int CanID, bool UseEFF=false); //TODO
+		// bool RequestMessage(int NumBytes, int CanID, bool UseEFF=false); //TESTME
 
 		// SCCanStatus ConfigGlobalFilter(uint32_t nonMatchingStd, uint32_t nonMatchingExt, uint32_t rejectRemoteStd, uint32_t rejectRemoteExt);
 		bool Loop();
@@ -160,6 +160,8 @@ class SimpleCan_Pico : public SimpleCan
 		static RxHandlerPico *RxHandlerP;		
 
 	private:
+		uint32_t RxPin;	//#FIXME
+		uint32_t	TxPin;
 		static CanIDFilter SendIDFilterFunc;
 		static uint16_t Bitrate_kHz;	// LATER - Changes needed for two CAN instances?
 };
@@ -169,8 +171,10 @@ RxHandlerPico* SimpleCan_Pico::RxHandlerP=nullptr;	// Presumably this must be st
 CanIDFilter SimpleCan_Pico::SendIDFilterFunc;
 uint16_t SimpleCan_Pico::Bitrate_kHz;
 
-SimpleCan_Pico::SimpleCan_Pico()
+SimpleCan_Pico::SimpleCan_Pico(uint32_t PinTx, uint32_t PinRx) : SimpleCan(PinTx, PinRx)
 {
+	RxPin = 	PinRx;
+	TxPin = PinTx;
 	SendIDFilterFunc = 0;
 }
 
@@ -262,9 +266,10 @@ SCCanStatus SimpleCan_Pico::Start(void)
 	// Start canbus
 	uint32_t sys_clock = F_CPU;
 	uint32_t bitrate = Bitrate_kHz*1000;
-	uint32_t gpio_rx = 16, gpio_tx = 17;	//TODO later: pass in pin variables
+	// uint32_t gpio_rx = 16, gpio_tx = 17;	//TODO later: pass in pin variables
+
 	
-	can2040_start(&cbus, sys_clock, bitrate, gpio_rx, gpio_tx);
+	can2040_start(&cbus, sys_clock, bitrate, RxPin, TxPin);
 	Serial.println("CAN (Pico): Start");
 	return CAN_OK;
 }
@@ -366,14 +371,12 @@ bool SimpleCan_Pico::SendNextMessageFromQueue()
 		can2040_msg CMsg;
 		
 		CMsg.dlc = Msg.Size;
-
-		// This should not be shifted; 2 MSB unused for 29 bit// CMsg.id << 2;	// TESTME - should this be shifted? Is it actually 29 bit?
 		
 		Msg.CanID = ((uint32_t)Msg.CanID) & (Msg.EFF ? MASK_29BIT : MASK_11BIT);	// throw away any extra bits in the ID
 		CMsg.id = Msg.CanID;
 		if (Msg.EFF)
 		{
-			CMsg.id |= CAN2040_ID_EFF; // TESTME: added back EFF bit to iD 
+			CMsg.id |= CAN2040_ID_EFF;
 		}
 		if (Msg.RTR)
 		{
@@ -416,9 +419,9 @@ bool SimpleCan_Pico::Loop()
 	return RxHandlerP->Loop();
 }
 
-SimpleCan* CreateCanLib()
+SimpleCan* CreateCanLib(uint32_t PinTx, uint32_t PinRx)
 {
-	return (SimpleCan*) new SimpleCan_Pico;
+	return (SimpleCan*) new SimpleCan_Pico(PinTx, PinRx);
 }
 
 

@@ -331,19 +331,19 @@ class SimpleCANProfile
 {
     public:
 		// This is, where you finaly receive the CAN messages in your own code!
-        virtual void HandleCanMessage(const SimpleCanRxHeader rxHeader, const uint8_t *rxData)=0;
+      virtual void HandleCanMessage(const SimpleCanRxHeader rxHeader, const uint8_t *rxData)=0;
 
-        SimpleCANProfile(SimpleCan* pCan);
-        virtual void  Init(CanIDFilter IDFilterFunc=0);
-        virtual void  CANSendText(const char* Text, const int CanID);
-        virtual void  CANSendFloat(const float Val1, const int CanID);
-        virtual void  CANSendFloat(const float Val1, const float Val2, const int CanID);
-        virtual void  CANSendInt(const int32_t Val, const int CanID);
+      SimpleCANProfile(SimpleCan* pCan);
+      virtual void  Init(CanIDFilter IDFilterFunc=0);
+      virtual void  CANSendText(const char* Text, const int CanID);
+      virtual void  CANSendFloat(const float Val1, const int CanID);
+      virtual void  CANSendFloat(const float Val1, const float Val2, const int CanID);
+      virtual void  CANSendInt(const int32_t Val, const int CanID);
 		virtual void  CANSendInt(const int32_t Val1, const int32_t Val2, const int CanID);
-        virtual float CANGetFloat(const uint8_t* pData);
-        virtual int   CANGetInt(const uint8_t* pData);
+      virtual int   CANGetInt(const uint8_t* pData);
 		virtual void  CANGetInt(const uint8_t* pData, int32_t* pInt1, int32_t* pInt2);
-        virtual void  CANGetFloat(const uint8_t* pData, float* pf1, float* pf2);
-        virtual void  CANGetString(const uint8_t* pData, char* pChar, int MaxLen);      
-        SimpleCan* Can1;     
+      virtual float  CANGetFloat(const uint8_t* pData);
+      virtual void  CANGetFloat(const uint8_t* pData, float* pf1, float* pf2);
+      virtual void  CANGetString(const uint8_t* pData, char* pChar, int MaxLen);
+      SimpleCan* Can1;
 };

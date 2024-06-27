@@ -3,8 +3,7 @@
 
 #include <queue>
 
-
-#if defined(_STM32_DEF_) || defined(_PICO_)
+#if defined(_STM32_DEF_) || defined(PICO)
 
 // A simple, non-threadsafe queue for non-multithreading CPUs.
 template <class T>
@@ -41,7 +40,6 @@ private:
   std::queue<T> q;
 };
 #endif
-
 
 #if defined(xxx)
 // A threadsafe-queue for CPUs supporting std::mutex
