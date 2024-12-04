@@ -7,7 +7,7 @@
 #if defined(PICO)
 
 extern "C" {
-#include <can2040.h>
+#include "can2040.h"
 }
 
 
@@ -224,9 +224,11 @@ SCCanStatus SimpleCan_Pico::Init(SCCanSpeed speed, CanIDFilter IDFilterFunc /*=0
 	can2040_callback_config(&cbus, can2040_cb);
 
 	// Enable irqs
-	irq_set_exclusive_handler(PIO0_IRQ_0_IRQn, PIOx_IRQHandler);
-	NVIC_SetPriority(PIO0_IRQ_0_IRQn, 1);
-	NVIC_EnableIRQ(PIO0_IRQ_0_IRQn);
+	irq_set_exclusive_handler(PIO0_IRQ_0, PIOx_IRQHandler);
+	irq_set_priority(PIO0_IRQ_0,1);
+	irq_set_enabled(PIO0_IRQ_0, true);
+	// NVIC_SetPriority(PIO0_IRQ_0, 1);
+	// NVIC_EnableIRQ(PIO0_IRQ_0);
 
 	SimpleCan_Pico::Bitrate_kHz = 10000/speed;
 
