@@ -17,7 +17,7 @@
 /*
 	Note: In xxx\.platformio\packages\framework-arduinoststm32\system\Drivers\STM32G4xx_HAL_Driver\Src\stm32g4xx_hal_fdcan.c apply the following change:
 
-	Line 3493
+	Line 3524
     for (ByteCounter = 0; ByteCounter < DLCtoBytes[pTxHeader->DataLength >> 16U]; ByteCounter += 4U)
     {
       *TxAddress = (((uint32_t)pTxData[ByteCounter + 3U] << 24U) |
@@ -58,6 +58,16 @@
 void Error_Handler(int Code=-1)
 {
 	Serial.printf("\nError SimpleCan_STM32G4xx %d\n", Code);
+	bool blinkstate;
+	#ifdef LED_BUILTIN
+		pinMode(LED_BUILTIN, OUTPUT);
+		while(1)
+		{
+			blinkstate = !blinkstate;
+			digitalWrite(LED_BUILTIN, blinkstate);
+			delay(100);
+		}
+	#endif
 }
 #endif
 
@@ -206,7 +216,7 @@ bool RxHandlerSTM32::CANReadFrame(SimpleCanRxHeader* SCHeader, uint8_t* pData, i
 	{
 		// Convert the header
 		SCHeader->Identifier = _rxHeader.Identifier;
-		SCHeader->DataLength = DLCtoBytes[_rxHeader.DataLength>>16];			
+		SCHeader->DataLength = _rxHeader.DataLength;
 		SCHeader->RxTimestamp = _rxHeader.RxTimestamp;
 		SCHeader->FilterIndex = _rxHeader.FilterIndex;
 		SCHeader->IsFilterMatchingFrame = _rxHeader.IsFilterMatchingFrame;
@@ -281,7 +291,7 @@ SCCanStatus SimpleCan_STM32G4xx::Start(void)
 	#else
 		#warning "No A_CAN_SHDN"
 	#endif
-	return HALSTATUS2CANSTATUS(HAL_FDCAN_Start(&_hfdcan1));
+ 	return HALSTATUS2CANSTATUS(HAL_FDCAN_Start(&_hfdcan1));
 }
 
 
@@ -325,7 +335,7 @@ SCCanStatus SimpleCan_STM32G4xx::Init(SCCanSpeed speed, CanIDFilter IDFilterFunc
 	init->StdFiltersNbr = 1;
 	init->ExtFiltersNbr = 1;
 	init->TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
-	
+
 	return HALSTATUS2CANSTATUS(HAL_FDCAN_Init(&_hfdcan1));
 }
 

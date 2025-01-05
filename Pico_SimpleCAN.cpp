@@ -2,6 +2,7 @@
 #include "ThreadSafeQueue.h"
 #include "SimpleCAN.h"
 
+// #define S_DEBUG
 // #define PICO
 
 #if defined(PICO)
@@ -394,6 +395,7 @@ bool SimpleCan_Pico::SendNextMessageFromQueue()
 
 		}
 		
+#ifdef S_DEBUG
 		// DEBUG TX prints
 		uint64_t Val;
 		memcpy(&Val, &(CMsg.data), CMsg.dlc);
@@ -404,6 +406,7 @@ bool SimpleCan_Pico::SendNextMessageFromQueue()
 		utoa(Val, buf2,2);
 		
 		Serial.printf("T~ID:%32s DLC=%d Remote?%d EFF?%d\n data=%64s\n\n", buf, CMsg.dlc, Msg.RTR, Msg.EFF, Msg.RTR ? "~": buf2);
+#endif
 
 		// schedule for transmission & copy to internal storage; returns 0 if success, (-) number if queue full
 		if (can2040_transmit(&cbus, &CMsg) < 0)
